@@ -4,6 +4,7 @@ import sys
 import os
 import FileHost
 import Image
+import QuestionDialog
 
 class OverViewCanvas( wx.Panel):
 	def __init__(self, parent, id = -1, size = wx.DefaultSize):
@@ -36,9 +37,9 @@ class OverViewCanvas( wx.Panel):
 	def ShowLocked( self, dc, city, cities, mode = wx.SOLID, fromMouse = False ):
 		if fromMouse:
 			dc = self.UpdateDrawing( finish = False )
-		self.HighlightCity( dc, self.parent.region, (city.cityXPos,city.cityYPos), wx.Colour( 255,128,128), mode, wx.OR )
+		self.HighlightCity( dc, self.parent.region, city, wx.Colour( 255,128,128), mode, wx.OR )
 		for c in cities:
-			self.HighlightCity( dc, self.parent.region, (c.cityXPos,c.cityYPos), wx.Colour( 128,128,128), mode )
+			self.HighlightCity( dc, self.parent.region, c, wx.Colour( 128,128,128), mode )
 		if fromMouse:
 			dc.EndDrawing()
 	def UpdateDrawing( self, finish = True):
@@ -50,7 +51,10 @@ class OverViewCanvas( wx.Panel):
 		self.AddOverlay( dc, self.parent.region )
 		for player in self.parent.players:
 			if self.parent.mainTiles[player]:
-				self.ShowLocked( dc, self.parent.mainTiles[player], self.parent.Tiles[player], wx.CROSSDIAG_HATCH )
+				if player == self.parent.playerName:
+					self.ShowLocked( dc, self.parent.mainTiles[player], self.parent.Tiles[player], wx.CROSS_HATCH )
+				else:
+					self.ShowLocked( dc, self.parent.mainTiles[player], self.parent.Tiles[player], wx.CROSSDIAG_HATCH )
 		if finish:
 			dc.EndDrawing()		
 		self.wait = True
@@ -82,24 +86,24 @@ class OverViewCanvas( wx.Panel):
 			dc.SetBrush(wx.Brush( colours[city.cityXSize],wx.TRANSPARENT ) )
 			self.DrawRectangle( dc, x,y,width,height )
 			self.DrawRectangle( dc, x+1,y+1,width-2,height-2 )
-	def HighlightCity( self, dc, region, pos, colour, mode = wx.CROSSDIAG_HATCH, op = wx.XOR, fromMouse = False ):
+	def HighlightCity( self, dc, region, city, colour, mode = wx.CROSSDIAG_HATCH, op = wx.XOR, fromMouse = False ):
 		if fromMouse:
 			dc = self.UpdateDrawing( finish = False )
 		sizes = [ 0,16,32,0,64 ]
-		for city in region.allCities:
-			if pos[0] >= city.cityXPos and pos[0] < city.cityXPos+city.cityXSize and pos[1] >= city.cityYPos and pos[1] < city.cityYPos+city.cityYSize :
-				x = int( city.cityXPos*16 )
-				y = int( city.cityYPos*16 )
-				width = sizes[city.cityXSize]
-				height = sizes[city.cityYSize]
-				dc.SetLogicalFunction( op )
-				dc.SetPen(wx.Pen( colour ))
-				dc.SetBrush(wx.Brush( colour,mode) )		
-				self.DrawRectangle( dc, x+1,y+1,width-2,height-2 )
-				self.DrawRectangle( dc, x,y,width,height )
-				self.DrawRectangle( dc, x-1,y-1,width+2,height+2 )
-				dc.SetLogicalFunction( wx.COPY )
-				break
+		#for city in region.allCities:
+			#if pos[0] >= city.cityXPos and pos[0] < city.cityXPos+city.cityXSize and pos[1] >= city.cityYPos and pos[1] < city.cityYPos+city.cityYSize :
+		x = int( city.cityXPos*16 )
+		y = int( city.cityYPos*16 )
+		width = sizes[city.cityXSize]
+		height = sizes[city.cityYSize]
+		dc.SetLogicalFunction( op )
+		dc.SetPen(wx.Pen( colour ))
+		dc.SetBrush(wx.Brush( colour,mode) )		
+		self.DrawRectangle( dc, x+1,y+1,width-2,height-2 )
+		self.DrawRectangle( dc, x,y,width,height )
+		self.DrawRectangle( dc, x-1,y-1,width+2,height+2 )
+		dc.SetLogicalFunction( wx.COPY )
+		#break
 		if fromMouse:
 			dc.EndDrawing()
 	def DrawRectangle( self, dc, x, y, width, height ):
@@ -130,6 +134,7 @@ class OverView( wx.Frame ):
 				pass
 		self.region = utils.SC4Region( dlgstub(), config )
 		self.region.show( dlgstub() )
+		self.playerName = ""
 
 		md5 = FileHost.md5Checksum( "PlayerNames.txt" )
 		FileHost.downloadFile( "Players.txt", md5 )
@@ -162,10 +167,80 @@ class OverView( wx.Frame ):
 		self.SetSizer(self.box)
 		self.Center()
 		self.back.Bind( wx.EVT_MOTION, self.OnMouseMove )
+		self.back.Bind( wx.EVT_RIGHT_DOWN, self.OnRightDown )
+		self.back.Bind( wx.EVT_LEFT_DOWN, self.OnLeftDown )
+
+	def PlayerSelection( self ):
+		if os.path.exists( "name.txt" ):
+			f = open( "name.txt" ,"rt")
+			self.playerName = f.read().strip("\n").strip()
+			f.close()
+		if self.playerName not in self.players:
+			self.playerName = QuestionDialog.questionDialog( "Who are you?",self.players,"Select player")
+			f = open( "name.txt","wt")
+			f.write( self.playerName )
+			f.close()
+		self.SetTitle( "NOROTool Version 0.2 - "+self.playerName )
+
+	def OnLeftDown( self, event ):
+		event.Skip()
+		try:
+			if self.mainTiles[ self.playerName ] != None:
+				return
+		except KeyError:
+			return
+		newpos = (event.GetX(), event.GetY())			
+		newpos = [ newpos[0]/16,newpos[1]/16 ]
+		city = self.region.GetCityUnder( newpos )
+		cities = self.GetImpactedCities( city )
+		bValid = True
+		for player in self.players:
+			for city2 in cities:
+				if city2 in self.Tiles[player]:
+					bValid = False
+					break	
+			if bValid == False:
+				break
+		if bValid:
+			self.mainTiles[ self.playerName ] = city
+			self.Tiles[ self.playerName ] = cities
+			self.back.UpdateDrawing()			
+			self.back.wait = True
+			self.back.Refresh( False )
+			wx.BeginBusyCursor()
+			playerFile = open( "player_"+self.playerName+".txt", "wt" )
+			playerFile.write( "%d\n%d"%(city.cityXPos,city.cityYPos) )
+			playerFile.close()
+			FileHost.uploadFile( "player_"+self.playerName+".txt" )
+			wx.EndBusyCursor()
+
+	def OnRightDown( self, event ):
+		event.Skip()
+		try:
+			if self.mainTiles[ self.playerName ] == None:
+				return
+		except KeyError:
+			return
+		self.mainTiles[ self.playerName ] = None
+		self.Tiles[ self.playerName ] = []
+		self.back.UpdateDrawing()			
+		self.back.wait = True
+		self.back.Refresh( False )
+		wx.BeginBusyCursor()
+		playerFile = open( "player_"+self.playerName+".txt", "wt" )
+		playerFile.close()
+		FileHost.uploadFile( "player_"+self.playerName+".txt" )
+		wx.EndBusyCursor()
 
 	def OnMouseMove( self, event ):
+		event.Skip()
 		if self.back.wait == True:
 			pass
+		try:
+			if self.mainTiles[ self.playerName ] != None:
+				return
+		except KeyError:
+			return
 		bValid = True
 		newpos = (event.GetX(), event.GetY())			
 		newpos = [ newpos[0]/16,newpos[1]/16 ]
@@ -181,10 +256,10 @@ class OverView( wx.Frame ):
 		if bValid:
 			self.back.ShowLocked( 0, city, cities, wx.CROSS_HATCH, True )
 		else:
-			self.back.HighlightCity( 0, self.region, (city.cityXPos,city.cityYPos), wx.Colour( 255,0,0 ), wx.SOLID, wx.OR, True)
-
+			self.back.HighlightCity( 0, self.region, city, wx.Colour( 255,0,0 ), wx.SOLID, wx.OR, True)
 		self.back.wait = True
 		self.back.Refresh( False )
+
 	def GetImpactedCities( self, city ):
 		firstRing = self.region.GetAdjacentCities( city )
 		secondRing = []
@@ -216,8 +291,10 @@ class SplashScreen(wx.SplashScreen):
 		self.ShowMain()
 
 	def ShowMain(self):
-		frame = OverView( None, "NOROTool Version 0.1", (600,600) )
+		frame = OverView( None, "NOROTool Version 0.2", (600,600) )
 		frame.Show()
+		wx.CallAfter( frame.PlayerSelection )
+
 		
 class SC4App( wx.App ):
 	def OnInit( self ):
@@ -236,9 +313,6 @@ def main():
 #print md5
 #md5 = FileHost.uploadFile( "PlayerNames.txt" )
 #print md5
-
-
-
 
 if not os.path.exists( "NoroConfig.bmp" ):
 	md5 = FileHost.md5Checksum( "Config.bmp" )
