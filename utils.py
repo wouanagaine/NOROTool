@@ -26,7 +26,7 @@ class CityProxy( object ):
 		"""check if the city is at a specific coordinate ( in config.bmp coordinate )"""
 		return x == self.cityXPos and y == self.cityYPos
 	
-def WorkTheconfig( config, waterLevel ):
+def WorkTheconfig( config ):
 	"""Read the config.bmp, verify it, and create the city proxies for it"""
 	verified = Numeric.zeros( config.size, Numeric.int8 )
 	def Redish( value ):
@@ -103,7 +103,7 @@ def WorkTheconfig( config, waterLevel ):
 	print "big cities = ", big
 	print "medium cities = ", medium
 	print "small cities = ", small
-	cities = [ CityProxy( waterLevel, c[0],c[1], 1,1 ) for c in smalls ] + [ CityProxy( waterLevel, c[0],c[1], 2,2 ) for c in mediums ] + [ CityProxy( waterLevel, c[0],c[1], 4,4 ) for c in bigs ]
+	cities = [ CityProxy( c[0],c[1], 1,1 ) for c in smalls ] + [ CityProxy( c[0],c[1], 2,2 ) for c in mediums ] + [ CityProxy(  c[0],c[1], 4,4 ) for c in bigs ]
 	return cities
 
 
@@ -115,11 +115,13 @@ class SC4Region( object ):
 		
 		self.config = self.config.convert( 'RGB' )
 		self.originalConfig = self.config.copy()
-		self.allCities = WorkTheconfig( self.config, waterLevel )
+		self.allCities = WorkTheconfig( self.config )
 			
 		self.config = self.BuildConfig()
 		self.originalConfig = self.BuildConfig()  
 		if dlg is not None: dlg.Update( 1, "Please wait while loading the region" )
+
+
 	
 	def BuildConfig( self ):
 		"""Build a nice config.bmp with slight colors changes, also fill the missingCities"""
@@ -182,7 +184,7 @@ class SC4Region( object ):
 		cities = []
 		for city in ( self.allCities ):
 			def collide( x1,y1,w1,h1,x2,y2,w2,h2 ):
-				return not (x1 >= x2+w2 or x1+w1 <= x2 or y1 >= y2+h2 or y1+h1 <= y2)
+				return not ( (x1 >= x2+w2 )or ( x1+w1 <= x2 ) or ( y1 >= y2+h2 ) or ( y1+h1 <= y2) )
 			if collide( pos[0],pos[1],size,size, city.cityXPos, city.cityYPos, city.cityXSize, city.cityYSize ):
 				cities.append( city )
 		return cities
@@ -204,7 +206,14 @@ class SC4Region( object ):
 				imgSize[0] = x
 			if imgSize[1] < y :
 				imgSize[1] = y
-		self.imgSize = [ a * 64 + 1 for a in imgSize ]              
+		self.imgSize = [ a * 16 + 1 for a in imgSize ]
 		self.shape = [self.imgSize[1],self.imgSize[0]]
+
+	def GetAdjacentCities( self, city ):
+		size = city.cityXSize+2
+		pos = (city.cityXPos-1,city.cityYPos-1)
+		cities = self.GetCitiesUnder( pos, size )
+		cities.remove( city )
+		return cities
 
 
