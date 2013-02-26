@@ -185,7 +185,7 @@ class SC4Region( object ):
 		for city in ( self.allCities ):
 			def collide( x1,y1,w1,h1,x2,y2,w2,h2 ):
 				return not ( (x1 >= x2+w2 )or ( x1+w1 <= x2 ) or ( y1 >= y2+h2 ) or ( y1+h1 <= y2) )
-			if collide( pos[0],pos[1],size,size, city.cityXPos, city.cityYPos, city.cityXSize, city.cityYSize ):
+			if collide( pos[0],pos[1],size[0],size[1], city.cityXPos, city.cityYPos, city.cityXSize, city.cityYSize ):
 				cities.append( city )
 		return cities
 
@@ -210,9 +210,10 @@ class SC4Region( object ):
 		self.shape = [self.imgSize[1],self.imgSize[0]]
 
 	def GetAdjacentCities( self, city ):
-		size = city.cityXSize+2
-		pos = (city.cityXPos-1,city.cityYPos-1)
-		cities = self.GetCitiesUnder( pos, size )
+		posV = (city.cityXPos,city.cityYPos-1)
+		posH = (city.cityXPos-1,city.cityYPos)
+		cities = self.GetCitiesUnder( posH, ( city.cityXSize+2, city.cityYSize ) )+self.GetCitiesUnder( posV, ( city.cityXSize, city.cityYSize+2 ) )
+		cities = list( set ( cities ) )
 		cities.remove( city )
 		return cities
 

@@ -28,42 +28,29 @@ class OverViewCanvas( wx.Panel):
 			if self.buffer == None or ( self.buffer.GetWidth() != size[0] or self.buffer.GetHeight() != size[1] ):
 				self.buffer = wx.EmptyBitmap(*size)
 
-			self.UpdateDrawing( newSize = size )	
+			self.UpdateDrawing()	
 		else:
 			self.buffer = None
 		if event:
 			event.Skip()
-	def ShowLocked( self, dc, city, mode = wx.SOLID ):
+	def ShowLocked( self, dc, city, cities, mode = wx.SOLID, fromMouse = False ):
+		if fromMouse:
+			dc = self.UpdateDrawing( finish = False )
 		self.HighlightCity( dc, self.parent.region, (city.cityXPos,city.cityYPos), wx.Colour( 255,128,128), mode, wx.OR )
-		firstRing = self.parent.region.GetAdjacentCities( city )
-		secondRing = []
-		for c in firstRing :
-			secondRing += self.parent.region.GetAdjacentCities( c )
-		secondRing = list( set( secondRing ) )
-		try:
-			secondRing.remove( city )
-		except ValueError:
-			pass
-		for c in firstRing :
-			try:
-				secondRing.remove( c )
-			except ValueError:
-				pass
-		for c in firstRing+secondRing:
+		for c in cities:
 			self.HighlightCity( dc, self.parent.region, (c.cityXPos,c.cityYPos), wx.Colour( 128,128,128), mode )
-
-	def UpdateDrawing( self, pos = None, newSize = None, finish = True):
+		if fromMouse:
+			dc.EndDrawing()
+	def UpdateDrawing( self, finish = True):
 		dc = wx.BufferedDC( None, self.buffer)
 		dc.BeginDrawing()
 		dc.SetBackground(wx.Brush( wx.Colour( 64,128,64 ),wx.SOLID))
 		dc.Clear()			
 		dc.DrawBitmap( self.backImg, 0, 0,  False )
-		#self.AddGrid( dc, self.parent.region )
 		self.AddOverlay( dc, self.parent.region )
-		city = self.parent.region.GetCityUnder( (7,15) )
-		self.ShowLocked( dc, city )
-		city = self.parent.region.GetCityUnder( (32,25) )
-		self.ShowLocked( dc, city, wx.CROSSDIAG_HATCH )
+		for player in self.parent.players:
+			if self.parent.mainTiles[player]:
+				self.ShowLocked( dc, self.parent.mainTiles[player], self.parent.Tiles[player], wx.CROSSDIAG_HATCH )
 		if finish:
 			dc.EndDrawing()		
 		self.wait = True
@@ -143,6 +130,30 @@ class OverView( wx.Frame ):
 				pass
 		self.region = utils.SC4Region( dlgstub(), config )
 		self.region.show( dlgstub() )
+
+		md5 = FileHost.md5Checksum( "PlayerNames.txt" )
+		FileHost.downloadFile( "Players.txt", md5 )
+		playerFile = open( "Players.txt", "rt" )
+		players = playerFile.readlines()
+		playerFile.close()
+		self.players = [ x.strip("\n").strip() for x in players ]
+		self.mainTiles = {}
+		self.Tiles = {}
+		print players
+		for player in self.players:
+			self.mainTiles[ player ] = None
+			self.Tiles[ player ] = []
+			md5 = FileHost.md5Checksum( "player_"+player+".txt" )
+			FileHost.downloadFile( "player_"+player+".txt", md5 )
+			playerFile = open( "player_"+player+".txt", "rt" )
+			lines = playerFile.readlines()
+			playerFile.close()
+			if len( lines ) > 0 :
+				coord = [ int( line.strip("\n").strip() ) for line in lines ]
+				print player, coord
+				mainTile = self.region.GetCityUnder( coord )
+				self.mainTiles[ player ] = mainTile
+				self.Tiles[ player ] = self.GetImpactedCities( mainTile )
 		self.back = OverViewCanvas(self, -1,size=(self.region.imgSize))
 		self.back.SetBackgroundColour("WHITE")
 		self.box = wx.BoxSizer( wx.VERTICAL )
@@ -150,7 +161,46 @@ class OverView( wx.Frame ):
 		self.box.Fit(self)
 		self.SetSizer(self.box)
 		self.Center()
+		self.back.Bind( wx.EVT_MOTION, self.OnMouseMove )
 
+	def OnMouseMove( self, event ):
+		if self.back.wait == True:
+			pass
+		bValid = True
+		newpos = (event.GetX(), event.GetY())			
+		newpos = [ newpos[0]/16,newpos[1]/16 ]
+		city = self.region.GetCityUnder( newpos )
+		cities = self.GetImpactedCities( city )
+		for player in self.players:
+			for city2 in cities:
+				if city2 in self.Tiles[player]:
+					bValid = False
+					break	
+			if bValid == False:
+				break
+		if bValid:
+			self.back.ShowLocked( 0, city, cities, wx.CROSS_HATCH, True )
+		else:
+			self.back.HighlightCity( 0, self.region, (city.cityXPos,city.cityYPos), wx.Colour( 255,0,0 ), wx.SOLID, wx.OR, True)
+
+		self.back.wait = True
+		self.back.Refresh( False )
+	def GetImpactedCities( self, city ):
+		firstRing = self.region.GetAdjacentCities( city )
+		secondRing = []
+		for c in firstRing :
+			secondRing += self.region.GetAdjacentCities( c )
+		secondRing = list( set( secondRing ) )
+		try:
+			secondRing.remove( city )
+		except ValueError:
+			pass
+		for c in firstRing :
+			try:
+				secondRing.remove( c )
+			except ValueError:
+				pass
+		return firstRing+secondRing
 
 class SplashScreen(wx.SplashScreen):
 	def __init__(self):
@@ -186,6 +236,8 @@ def main():
 #print md5
 #md5 = FileHost.uploadFile( "PlayerNames.txt" )
 #print md5
+
+
 
 
 if not os.path.exists( "NoroConfig.bmp" ):
