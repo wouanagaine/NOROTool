@@ -5,6 +5,15 @@ import os
 import FileHost
 import Image
 import QuestionDialog
+import hashlib
+import NOROVersion
+
+def computeMd5Checksum(filePath):
+	m = hashlib.md5()
+	f = open( filePath, "rb" )
+	m.update( f.read() )
+	f.close()
+	return m.hexdigest()
 
 class OverViewCanvas( wx.Panel):
 	def __init__(self, parent, id = -1, size = wx.DefaultSize):
@@ -136,7 +145,7 @@ class OverView( wx.Frame ):
 		self.region.show( dlgstub() )
 		self.playerName = ""
 
-		FileHost.downloadFile( "PlayerNames.txt" )
+		
 		playerFile = open( "PlayerNames.txt", "rt" )
 		players = playerFile.readlines()
 		playerFile.close()
@@ -147,8 +156,6 @@ class OverView( wx.Frame ):
 		for player in self.players:
 			self.mainTiles[ player ] = None
 			self.Tiles[ player ] = []
-			md5 = FileHost.md5Checksum( "player_"+player+".txt" )
-			FileHost.downloadFile( "player_"+player+".txt", md5 )
 			playerFile = open( "player_"+player+".txt", "rt" )
 			lines = playerFile.readlines()
 			playerFile.close()
@@ -185,7 +192,7 @@ class OverView( wx.Frame ):
 			f = open( "name.txt","wt")
 			f.write( self.playerName )
 			f.close()
-		self.SetTitle( "NOROTool Version 0.2 - "+self.playerName )
+		self.SetTitle( "NOROTool Version "+NOROVersion.NORO_VERSION+" - "+self.playerName )
 
 	def OnLeftDown( self, event ):
 		event.Skip()
@@ -282,24 +289,141 @@ class OverView( wx.Frame ):
 				pass
 		return firstRing+secondRing
 
-class SplashScreen(wx.SplashScreen):
-	def __init__(self):
-		bmp = wx.Image( os.path.join( basedir, "splash.jpg" ),wx.BITMAP_TYPE_JPEG).ConvertToBitmap()
-		wx.SplashScreen.__init__(self, bmp,
-								 wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT,
-								 1000, None, -1)
+class BaseSplashScreen( wx.Frame ):
+	def __init__(self, parent, ID=-1, title="SplashScreen",
+				 style=wx.SIMPLE_BORDER|wx.STAY_ON_TOP,
+				 duration=1500, bitmapfile="bitmaps/splashscreen.bmp",
+				 ):
+		'''
+		parent, ID, title, style -- see wx.Frame
+		duration -- milliseconds to display the splash screen
+		bitmapfile -- absolute or relative pathname to image file
+		'''
+		bmp = wx.Image(bitmapfile, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
+		size = (bmp.GetWidth(), bmp.GetHeight())
+		# size of screen
+		width = wx.SystemSettings_GetMetric(wx.SYS_SCREEN_X)
+		height = wx.SystemSettings_GetMetric(wx.SYS_SCREEN_Y)
+		pos = ((width-size[0])/2, (height-size[1])/2)
+
+		# check for overflow...
+		if pos[0] < 0:
+			size = (wx.SystemSettings_GetSystemMetric(wx.SYS_SCREEN_X), size[1])
+		if pos[1] < 0:
+			size = (size[0], wx.SystemSettings_GetSystemMetric(wx.SYS_SCREEN_Y))
+		wx.Frame.__init__(self, parent, ID, title, pos, size, style)
+		static = wx.StaticBitmap( self, wx.ID_ANY, bmp )
+		sizer = wx.BoxSizer( wx.VERTICAL )
+		sizer.Add( static, 1, wx.EXPAND|wx.ALL, 0 )
+		self.SetSizer( sizer )
+		self.Layout()
+		
+		self.sb = wx.StatusBar(self)
+		self.SetStatusBar(self.sb)
+		self.sb.SetFieldsCount(1)
+		self.sb.SetStatusWidths([-1])
+		
+		self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseClick)
+		self.Bind(wx.EVT_CLOSE, self.OnCloseWindow)
+		self.Bind(wx.EVT_TIMER, self.OnSplashExitDefault )
+		self.Show(True)
+		self.timer = wx.Timer(self,duration)
+		self.timer.Start(duration, 1) # one-shot only
+
+	def OnSplashExitDefault(self, event=None):
+		self.Close(True)
+
+	def OnCloseWindow(self, event=None):
+		wx.FutureCall( 500, self.OnCloseWindowFinal )
+		
+	def OnCloseWindowFinal(self, event=None):
+		self.Show(False)
+		self.timer.Stop()
+		del self.timer
+		self.Destroy()
+
+	def OnMouseClick(self, event):
+		self.timer.Notify()
+		
+	def SetStatusText( self, text, i=0):
+		self.sb.SetStatusText( text, i )
+		wx.Yield()
+		
+class SplashScreen(BaseSplashScreen):
+	def __init__(self, parent = None ):
+		BaseSplashScreen.__init__( self, parent, bitmapfile="splash.jpg", title = "NOROTool Version "+NOROVersion.NORO_VERSION, duration=1000 )
+		wx.CallAfter( self.SetStatusText, ( "Initializing..." ) )		
 		self.Bind(wx.EVT_CLOSE, self.OnClose)
 
 	def OnClose(self, evt):
 		evt.Skip()
-		self.Hide()
 		self.ShowMain()
 
 	def ShowMain(self):
-		frame = OverView( None, "NOROTool Version 0.2", (600,600) )
-		frame.Show()
-		wx.CallAfter( frame.PlayerSelection )
+		if self.AutoUpdate():
+			frame = OverView( None, "NOROTool Version "+NOROVersion.NORO_VERSION, (600,600) )
+			frame.PlayerSelection()
+			frame.Show()
 
+	def AutoUpdate( self ):
+		self.SetStatusText( "Checking for update..." );
+		wx.Yield()
+		self.SetStatusText( "Downloading list files" );
+		wx.Yield()				
+		try:
+			FileHost.downloadFile( "fileList.txt" )
+			fileList = open( "fileList.txt","rt" )
+			files = fileList.readlines()
+			fileList.close()
+			version = files[0].strip("\n").strip()
+			if version != NOROVersion.NORO_VERSION:
+				dlg = wx.MessageDialog(None, "You don't have the correct version\nPlease download and reinstall the latest one",
+										 'Error',
+									 wx.OK | wx.ICON_ERROR
+									 )
+				dlg.ShowModal()
+				dlg.Destroy()
+				return False
+			downloadFiles = [ f.strip("\n").strip() for f in files[1:] ]		
+			for downloadMD5 in downloadFiles:
+				infos = downloadMD5.split()
+				download = infos[0]
+				md5 = infos[1]
+				toDownload = False
+				if os.path.exists( download ):
+					md5HD = computeMd5Checksum( download )
+					if md5HD != md5:
+						toDownload = True
+				if not os.path.exists( download ):
+					toDownload = True
+				if toDownload == True:
+					self.SetStatusText( "Downloading %s"%download );
+					wx.Yield()				
+					FileHost.downloadFile( download )
+					
+			playerFile = open( "PlayerNames.txt", "rt" )
+			players = playerFile.readlines()
+			playerFile.close()
+			players = [ x.strip("\n").strip() for x in players ]
+			for player in players:
+				playerFile = "player_"+player+".txt"
+				self.SetStatusText( "Downloading %s"%playerFile );
+				wx.Yield()				
+				FileHost.downloadFile( "player_"+player+".txt" )
+			self.SetStatusText( "Startup..." );
+			wx.Yield()				
+			return True
+		except:
+			dlg = wx.MessageDialog(None, "Problem while downloading files\nCheck you have an open internet connection",
+							 'Error',
+						 wx.OK | wx.ICON_ERROR
+						 )
+			dlg.ShowModal()
+			dlg.Destroy()
+			return False
+
+		
+	
 		
 class SC4App( wx.App ):
 	def OnInit( self ):
@@ -313,17 +437,12 @@ def main():
 	app = SC4App( False )
 	app.MainLoop()
 
+#FileHost.uploadFile( "fileList.txt" )
 #FileHost.uploadFile( "Background.jpg" )
 #md5 = FileHost.uploadFile( "Config.bmp" )
 #print md5
 #md5 = FileHost.uploadFile( "PlayerNames.txt" )
 #print md5
-
-if not os.path.exists( "Config.bmp" ):
-	FileHost.downloadFile( "Config.bmp" )
-
-if not os.path.exists( "Background.jpg" ):
-	FileHost.downloadFile( "Background.jpg" )
 
 
 if getattr(sys, 'frozen', None):
