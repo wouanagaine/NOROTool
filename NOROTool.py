@@ -182,9 +182,10 @@ class OverView( wx.Frame ):
 			self.playerName = f.read().strip("\n").strip()
 			f.close()
 		if self.playerName not in self.players:
-			self.playerName = QuestionDialog.questionDialog( "Who are you?", self.players, "Select player" )
+			self.playerName = QuestionDialog.questionDialog( "Who are you?", self.players, "Select player" ) or ""
 			f = open( "name.txt","wt")
-			f.write( self.playerName )
+			if self.playerName:
+				f.write( self.playerName )
 			f.close()
 		self.SetTitle( "NOROTool Version "+NOROVersion.NORO_VERSION+" - "+self.playerName )
 
