@@ -196,7 +196,7 @@ class OverView( wx.Frame ):
 		bValid = True
 		for player in self.players:
 			for city2 in cities:
-				if city2 in self.Tiles[player]:
+				if city2 == self.mainTiles[player]:
 					bValid = False
 					break	
 			if bValid == False:
@@ -248,7 +248,7 @@ class OverView( wx.Frame ):
 		cities = self.GetImpactedCities( city )
 		for player in self.players:
 			for city2 in cities:
-				if city2 in self.Tiles[player]:
+				if city2 == self.mainTiles[player]:
 					bValid = False
 					break	
 			if bValid == False:
