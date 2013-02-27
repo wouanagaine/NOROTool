@@ -125,7 +125,7 @@ class OverView( wx.Frame ):
 				  style=wx.DEFAULT_FRAME_STYLE |wx.MINIMIZE_BOX |wx.MAXIMIZE_BOX ):
 		wx.Frame.__init__(self, parent, -1, title, pos, size, style)
 
-		config = Image.open( "NoroConfig.bmp" )
+		config = Image.open( "config.bmp" )
 		class dlgstub:
 			def __init__( self ):
 				pass
@@ -136,9 +136,8 @@ class OverView( wx.Frame ):
 		self.region.show( dlgstub() )
 		self.playerName = ""
 
-		md5 = FileHost.md5Checksum( "PlayerNames.txt" )
-		FileHost.downloadFile( "Players.txt", md5 )
-		playerFile = open( "Players.txt", "rt" )
+		FileHost.downloadFile( "PlayersNames.txt" )
+		playerFile = open( "PlayersNames.txt", "rt" )
 		players = playerFile.readlines()
 		playerFile.close()
 		self.players = [ x.strip("\n").strip() for x in players ]
@@ -314,9 +313,8 @@ def main():
 #md5 = FileHost.uploadFile( "PlayerNames.txt" )
 #print md5
 
-if not os.path.exists( "NoroConfig.bmp" ):
-	md5 = FileHost.md5Checksum( "Config.bmp" )
-	FileHost.downloadFile( "NoroConfig.bmp", md5 )
+if not os.path.exists( "Config.bmp" ):
+	FileHost.downloadFile( "Config.bmp" )
 
 if not os.path.exists( "Background.jpg" ):
 	FileHost.downloadFile( "Background.jpg" )
