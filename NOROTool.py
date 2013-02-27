@@ -22,7 +22,7 @@ class OverViewCanvas( wx.Panel):
 		self.buffer = None
 		self.wait = False
 		im = wx.Image( "Background.jpg" )
-		im.Rescale( self.parent.region.imgSize[0],self.parent.region.imgSize[1] )
+		im.Rescale( self.parent.region.imgSize[0],self.parent.region.imgSize[1], wx.IMAGE_QUALITY_HIGH )
 		self.backImg = wx.BitmapFromImage( im )
 		self.Bind(wx.EVT_PAINT, self.OnPaint)
 		self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
@@ -43,12 +43,12 @@ class OverViewCanvas( wx.Panel):
 			self.buffer = None
 		if event:
 			event.Skip()
-	def ShowLocked( self, dc, city, cities, mode = wx.SOLID, fromMouse = False ):
+	def ShowLocked( self, dc, city, cities, mode = wx.CROSS_HATCH, fromMouse = False ):
 		if fromMouse:
 			dc = self.UpdateDrawing( finish = False )
-		self.HighlightCity( dc, self.parent.region, city, wx.Colour( 255,128,128), mode, wx.OR )
+		self.HighlightCity( dc, self.parent.region, city, wx.Colour( 128,128,255), mode, wx.OR )
 		for c in cities:
-			self.HighlightCity( dc, self.parent.region, c, wx.Colour( 128,128,128), mode )
+			self.HighlightCity( dc, self.parent.region, c, wx.Colour( 255,127,127), mode )
 		if fromMouse:
 			dc.EndDrawing()
 	def UpdateDrawing( self, finish = True):
@@ -61,7 +61,7 @@ class OverViewCanvas( wx.Panel):
 		for player in self.parent.players:
 			if self.parent.mainTiles[player]:
 				if player == self.parent.playerName:
-					self.ShowLocked( dc, self.parent.mainTiles[player], self.parent.Tiles[player], wx.CROSS_HATCH )
+					self.ShowLocked( dc, self.parent.mainTiles[player], self.parent.Tiles[player], wx.SOLID )
 				else:
 					self.ShowLocked( dc, self.parent.mainTiles[player], self.parent.Tiles[player], wx.CROSSDIAG_HATCH )
 		if finish:
@@ -99,8 +99,6 @@ class OverViewCanvas( wx.Panel):
 		if fromMouse:
 			dc = self.UpdateDrawing( finish = False )
 		sizes = [ 0,16,32,0,64 ]
-		#for city in region.allCities:
-			#if pos[0] >= city.cityXPos and pos[0] < city.cityXPos+city.cityXSize and pos[1] >= city.cityYPos and pos[1] < city.cityYPos+city.cityYSize :
 		x = int( city.cityXPos*16 )
 		y = int( city.cityYPos*16 )
 		width = sizes[city.cityXSize]
@@ -112,7 +110,6 @@ class OverViewCanvas( wx.Panel):
 		self.DrawRectangle( dc, x,y,width,height )
 		self.DrawRectangle( dc, x-1,y-1,width+2,height+2 )
 		dc.SetLogicalFunction( wx.COPY )
-		#break
 		if fromMouse:
 			dc.EndDrawing()
 	def DrawRectangle( self, dc, x, y, width, height ):
@@ -144,8 +141,6 @@ class OverView( wx.Frame ):
 		self.region = utils.SC4Region( dlgstub(), config )
 		self.region.show( dlgstub() )
 		self.playerName = ""
-
-		
 		playerFile = open( "PlayerNames.txt", "rt" )
 		players = playerFile.readlines()
 		playerFile.close()
@@ -180,7 +175,6 @@ class OverView( wx.Frame ):
 	def OnClose(self, evt):
 		evt.Skip()
 		print 'closing'
-		
 
 	def PlayerSelection( self ):
 		if os.path.exists( "name.txt" ):
@@ -188,7 +182,7 @@ class OverView( wx.Frame ):
 			self.playerName = f.read().strip("\n").strip()
 			f.close()
 		if self.playerName not in self.players:
-			self.playerName = QuestionDialog.questionDialog( "Who are you?",self.players,"Select player")
+			self.playerName = QuestionDialog.questionDialog( "Who are you?", self.players, "Select player" )
 			f = open( "name.txt","wt")
 			f.write( self.playerName )
 			f.close()
@@ -206,11 +200,14 @@ class OverView( wx.Frame ):
 		city = self.region.GetCityUnder( newpos )
 		cities = self.GetImpactedCities( city )
 		bValid = True
+		
 		for player in self.players:
 			for city2 in cities:
 				if city2 == self.mainTiles[player]:
 					bValid = False
 					break	
+			if city == self.mainTiles[player]:
+				bValid = False
 			if bValid == False:
 				break
 		if bValid:
@@ -263,6 +260,8 @@ class OverView( wx.Frame ):
 				if city2 == self.mainTiles[player]:
 					bValid = False
 					break	
+			if city == self.mainTiles[player]:
+				bValid = False
 			if bValid == False:
 				break
 		if bValid:
