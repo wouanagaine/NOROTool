@@ -136,8 +136,8 @@ class OverView( wx.Frame ):
 		self.region.show( dlgstub() )
 		self.playerName = ""
 
-		FileHost.downloadFile( "PlayersNames.txt" )
-		playerFile = open( "PlayersNames.txt", "rt" )
+		FileHost.downloadFile( "PlayerNames.txt" )
+		playerFile = open( "PlayerNames.txt", "rt" )
 		players = playerFile.readlines()
 		playerFile.close()
 		self.players = [ x.strip("\n").strip() for x in players ]
