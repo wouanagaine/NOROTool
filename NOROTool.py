@@ -168,6 +168,12 @@ class OverView( wx.Frame ):
 		self.back.Bind( wx.EVT_MOTION, self.OnMouseMove )
 		self.back.Bind( wx.EVT_RIGHT_DOWN, self.OnRightDown )
 		self.back.Bind( wx.EVT_LEFT_DOWN, self.OnLeftDown )
+		self.Bind(wx.EVT_CLOSE, self.OnClose)
+
+	def OnClose(self, evt):
+		evt.Skip()
+		print 'closing'
+		
 
 	def PlayerSelection( self ):
 		if os.path.exists( "name.txt" ):
