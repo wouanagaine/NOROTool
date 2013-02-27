@@ -49,8 +49,9 @@ def md5Checksum(filePath):
 	m = hashlib.md5()
 	m.update( "NOROTOOL/"+filePath)
 	return 'NOROTOOL_'+m.hexdigest()
-def uploadFile(file):
-	md5=md5Checksum(file)
+def uploadFile(file, md5 = None):
+	if md5 == None:
+		md5=md5Checksum(file)
 	f=open(file,'rb')
 	fNote=Note(md5)
 	fNote.setNote(f.read())

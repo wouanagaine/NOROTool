@@ -1,1 +1,1 @@
-NORO_VERSION = "0.2"
+NORO_VERSION = "0.3"

@@ -7,6 +7,9 @@ import Image
 import QuestionDialog
 import hashlib
 import NOROVersion
+import subprocess
+import FileDownloader
+import math
 
 def computeMd5Checksum(filePath):
 	m = hashlib.md5()
@@ -196,6 +199,24 @@ class OverView( wx.Frame ):
 				return
 		except KeyError:
 			return
+		wx.BeginBusyCursor()
+		for player in self.players:
+			self.mainTiles[ player ] = None
+			self.Tiles[ player ] = []
+			playerFileName = "player_"+player+".txt"
+			playerFile = open( playerFileName, "rt" )
+			lines = playerFile.readlines()
+			playerFile.close()
+			self.mainTiles[ player ] = None
+			self.Tiles[ player ] = []
+			if len( lines ) > 0 :
+				coord = [ int( line.strip("\n").strip() ) for line in lines ]
+				print player, coord
+				mainTile = self.region.GetCityUnder( coord )
+				self.mainTiles[ player ] = mainTile
+				self.Tiles[ player ] = self.GetImpactedCities( mainTile )
+		wx.EndBusyCursor()
+
 		newpos = (event.GetX(), event.GetY())			
 		newpos = [ newpos[0]/16,newpos[1]/16 ]
 		city = self.region.GetCityUnder( newpos )
@@ -365,6 +386,44 @@ class SplashScreen(BaseSplashScreen):
 			frame.PlayerSelection()
 			frame.Show()
 
+	def trouble(self, message):
+		print message
+		dlg = wx.MessageDialog(None, message,
+								 'Error',
+							 wx.OK | wx.ICON_ERROR
+							 )
+		dlg.ShowModal()
+		dlg.Destroy()
+	def progress(self, totalLen, current, speed, startTime, now ):
+		self.SetStatusText( 'Downloading latest version '+self.calc_percent( current, totalLen ) + " " + self.format_bytes( current )+ ' out of ' + self.format_bytes( totalLen ) +' at ' + self.calc_speed( startTime, now, current ) )
+
+	@staticmethod
+	def calc_percent(byte_counter, data_len):
+		if data_len is None:
+			return '---.-%'
+		return '%6s' % ('%3.1f%%' % (float(byte_counter) / float(data_len) * 100.0))
+
+	@staticmethod
+	def calc_speed(start, now, bytes):
+		dif = now - start
+		if bytes == 0 or dif < 0.001: # One millisecond
+			return '%10s' % '---b/s'
+		return '%10s' % ('%s/s' % SplashScreen.format_bytes(float(bytes) / dif))
+
+	@staticmethod
+	def format_bytes(bytes):
+		if bytes is None:
+			return 'N/A'
+		if type(bytes) is str:
+			bytes = float(bytes)
+		if bytes == 0.0:
+			exponent = 0
+		else:
+			exponent = long(math.log(bytes, 1024.0))
+		suffix = 'bkMGTPEZY'[exponent]
+		converted = float(bytes) / float(1024 ** exponent)
+		return '%.2f%s' % (converted, suffix)
+
 	def AutoUpdate( self ):
 		self.SetStatusText( "Checking for update..." );
 		wx.Yield()
@@ -375,9 +434,20 @@ class SplashScreen(BaseSplashScreen):
 			fileList = open( "fileList.txt","rt" )
 			files = fileList.readlines()
 			fileList.close()
-			version = files[0].strip("\n").strip().split()[0]
+			firstLine = files[0].strip("\n").strip().split()
+			version = firstLine[0]
 			if version != NOROVersion.NORO_VERSION:
-				dlg = wx.MessageDialog(None, "You don't have the correct version\nPlease download and reinstall the latest one",
+				url = firstLine[1]
+				fd = FileDownloader.FileDownloader( url, "NOROTool.ex_" )
+				fd.Download( 5, self )
+				updateFile = open( "update.bat","wt")
+				updateFile.write( "@echo off\n")
+				updateFile.write( "echo UPDATING TO VERSION %s\n"%NOROVersion.NORO_VERSION)
+				updateFile.write( "ren NOROTool.exe NOROTool.%s.exe\n"%NOROVersion.NORO_VERSION)
+				updateFile.write( "ren NOROTool.ex_ NOROTool.exe\n")
+				updateFile.write( "NOROTool.exe\n" )
+				updateFile.close()
+				dlg = wx.MessageDialog(None, "You don't have the correct version\nPlease run update.bat",
 										 'Error',
 									 wx.OK | wx.ICON_ERROR
 									 )
@@ -411,7 +481,7 @@ class SplashScreen(BaseSplashScreen):
 				wx.Yield()				
 				FileHost.downloadFile( "player_"+player+".txt" )
 			self.SetStatusText( "Startup..." );
-			wx.Yield()				
+			wx.Yield()
 			return True
 		except:
 			dlg = wx.MessageDialog(None, "Problem while downloading files\nCheck you have an open internet connection",
@@ -421,9 +491,6 @@ class SplashScreen(BaseSplashScreen):
 			dlg.ShowModal()
 			dlg.Destroy()
 			return False
-
-		
-	
 		
 class SC4App( wx.App ):
 	def OnInit( self ):

@@ -1,2 +1,2 @@
-c:\python27\python.exe -OO l:\pyinstaller\pyinstaller.py -n NOROTool  -F -w --upx-dir=l:\upx308w "NOROTool.spec"
+d:\python27\python.exe -OO ..\pyinstaller\pyinstaller.py -n NOROTool  -F -w --upx-dir=..\..\upx308w "NOROTool.spec"
 
