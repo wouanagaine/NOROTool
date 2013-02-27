@@ -350,7 +350,7 @@ class BaseSplashScreen( wx.Frame ):
 		
 class SplashScreen(BaseSplashScreen):
 	def __init__(self, parent = None ):
-		BaseSplashScreen.__init__( self, parent, bitmapfile="splash.jpg", title = "NOROTool Version "+NOROVersion.NORO_VERSION, duration=1000 )
+		BaseSplashScreen.__init__( self, parent, bitmapfile=os.path.join( basedir, "splash.jpg" ), title = "NOROTool Version "+NOROVersion.NORO_VERSION, duration=1000 )
 		wx.CallAfter( self.SetStatusText, ( "Initializing..." ) )		
 		self.Bind(wx.EVT_CLOSE, self.OnClose)
 
@@ -374,7 +374,7 @@ class SplashScreen(BaseSplashScreen):
 			fileList = open( "fileList.txt","rt" )
 			files = fileList.readlines()
 			fileList.close()
-			version = files[0].strip("\n").strip()
+			version = files[0].strip("\n").strip().split()[0]
 			if version != NOROVersion.NORO_VERSION:
 				dlg = wx.MessageDialog(None, "You don't have the correct version\nPlease download and reinstall the latest one",
 										 'Error',
@@ -432,7 +432,6 @@ class SC4App( wx.App ):
 
 def main():
 	mainPath = sys.path[0]
-	os.chdir(mainPath)
 	app = SC4App( False )
 	app.MainLoop()
 
@@ -449,6 +448,9 @@ if getattr(sys, 'frozen', None):
 else:
 	basedir = os.path.dirname(__file__)
 
+print basedir
 mainPath = sys.path[0]
-os.chdir(mainPath)
+print mainPath
+print os.getcwd()
+#os.chdir(mainPath)
 main()
