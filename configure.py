@@ -12,7 +12,7 @@ def computeMd5Checksum(filePath):
 files = ["Config.bmp","Background.jpg","PlayerNames.txt" ]
 
 f = open( "fileList.txt", "wt" )
-f.write( "%s %s\n"%(NOROVersion.NORO_VERSION,"http://www.fileden.com/files/2006/7/28/145206/NOROTool-0.3.ex_" )
+f.write( "%s %s\n"%(NOROVersion.NORO_VERSION,"http://www.fileden.com/files/2006/7/28/145206/NOROTool-0.3.ex_" ) )
 for file in files:
 	md5 = computeMd5Checksum( file )
 	print file, md5
