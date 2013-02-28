@@ -454,6 +454,11 @@ class SplashScreen(BaseSplashScreen):
 				dlg.ShowModal()
 				dlg.Destroy()
 				return False
+			try:
+				if os.path.exists( "update.bat" ):
+					os.unlink( "update.bat" )
+			except:
+				pass
 			downloadFiles = [ f.strip("\n").strip() for f in files[1:] ]		
 			for downloadMD5 in downloadFiles:
 				infos = downloadMD5.split()
