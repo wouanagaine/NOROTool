@@ -25,26 +25,33 @@ IT UPLOAD THE FILE 'EXAMPLEFILE.zip' AND THEN
 DOWNLOAD THAT FILE WITH THE NAME 'EXAMPLEFILE2.zip'
 
 '''
-import urllib, urllib2, hashlib
+import urllib, urllib2, hashlib, requests
 class Note:
 	def __init__(self,id):
 		self.id=id
-		print "http://notepad.cc/"+id
-		self.page=urllib.urlopen("http://notepad.cc/"+id).read()
+		url = "http://notepad.cc/"+id
+		print url
+		r = requests.get( url )
+		#self.page=urllib.urlopen("http://notepad.cc/"+id).read()
+		self.page = r.text
 		pezzi=self.page.split('<textarea name="contents" id="contents" class="contents " spellcheck="true">')
 		p=pezzi[1].split("</textarea>")
 		self.cont=p[0]
 	def getNote(self):
 		return self.cont
 	def setNote(self, note):
-		url = 'http://notepad.cc/ajax/update_contents/'+self.id
-		values = {'contents' : note
-		}
+		requests.post('http://notepad.cc/ajax/update_contents/' + self.id, data = {'contents': note})
+		self.note = note		
 
-		data = urllib.urlencode(values)
-		req = urllib2.Request(url, data)
-		response = urllib2.urlopen(req)
-		the_page = response.read()
+		if 0:
+			url = 'http://notepad.cc/ajax/update_contents/'+self.id
+			values = {'contents' : note
+			}
+
+			data = urllib.urlencode(values)
+			req = urllib2.Request(url, data)
+			response = urllib2.urlopen(req)
+			the_page = response.read()
 def md5Checksum(filePath):
 	m = hashlib.md5()
 	m.update( "NOROTOOL/"+filePath)
@@ -60,6 +67,7 @@ def uploadFile(file, md5 = None):
 def downloadFile(filename,md5 = None):
 	if md5 == None:
 		md5 = md5Checksum( filename )
+	print "downloading", filename
 	fNote=Note(md5)
 	f=open(filename,'wb')
 	f.write(fNote.getNote())
