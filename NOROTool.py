@@ -49,7 +49,8 @@ class OverViewCanvas( wx.Panel):
 	def ShowLocked( self, dc, city, cities, mode = wx.CROSS_HATCH, fromMouse = False ):
 		if fromMouse:
 			dc = self.UpdateDrawing( finish = False )
-		self.HighlightCity( dc, self.parent.region, city, wx.Colour( 128,128,255), mode, wx.OR )
+		for c in city:
+			self.HighlightCity( dc, self.parent.region, c, wx.Colour( 128,128,255), mode, wx.OR )
 		for c in cities:
 			self.HighlightCity( dc, self.parent.region, c, wx.Colour( 255,127,127), mode )
 		if fromMouse:
@@ -152,17 +153,23 @@ class OverView( wx.Frame ):
 		self.Tiles = {}
 		print players
 		for player in self.players:
-			self.mainTiles[ player ] = None
+			self.mainTiles[ player ] = []
 			self.Tiles[ player ] = []
 			playerFile = open( "player_"+player+".txt", "rt" )
 			lines = playerFile.readlines()
 			playerFile.close()
 			if len( lines ) > 0 :
 				coord = [ int( line.strip("\n").strip() ) for line in lines ]
-				print player, coord
-				mainTile = self.region.GetCityUnder( coord )
-				self.mainTiles[ player ] = mainTile
-				self.Tiles[ player ] = self.GetImpactedCities( mainTile )
+				if len(coord)%2 != 0:
+					coord = []
+				coords = [ coord[i:i+2] for i in xrange( 0, len(coord),2 ) ]
+				print player, coord, coords
+				for coord in coords:
+					mainTile = self.region.GetCityUnder( coord )
+					self.mainTiles[ player ].append( mainTile )
+					for c in self.GetImpactedCities( mainTile ):
+						self.Tiles[ player ].append( c )
+				self.Tiles[player] = list(set(self.Tiles[player]))
 		self.back = OverViewCanvas(self, -1,size=(self.region.imgSize))
 		self.back.SetBackgroundColour("WHITE")
 		self.box = wx.BoxSizer( wx.VERTICAL )
@@ -194,27 +201,26 @@ class OverView( wx.Frame ):
 
 	def OnLeftDown( self, event ):
 		event.Skip()
-		try:
-			if self.mainTiles[ self.playerName ] != None:
-				return
-		except KeyError:
-			return
 		wx.BeginBusyCursor()
 		for player in self.players:
-			self.mainTiles[ player ] = None
-			self.Tiles[ player ] = []
 			playerFileName = "player_"+player+".txt"
 			playerFile = open( playerFileName, "rt" )
 			lines = playerFile.readlines()
 			playerFile.close()
-			self.mainTiles[ player ] = None
+			self.mainTiles[ player ] = []
 			self.Tiles[ player ] = []
 			if len( lines ) > 0 :
 				coord = [ int( line.strip("\n").strip() ) for line in lines ]
-				print player, coord
-				mainTile = self.region.GetCityUnder( coord )
-				self.mainTiles[ player ] = mainTile
-				self.Tiles[ player ] = self.GetImpactedCities( mainTile )
+				if len(coord)%2 != 0:
+					coord = []
+				coords = [ coord[i:i+2] for i in xrange( 0, len(coord),2 ) ]
+				print player, coord, coords
+				for coord in coords:
+					mainTile = self.region.GetCityUnder( coord )
+					self.mainTiles[ player ].append( mainTile )
+					for c in self.GetImpactedCities( mainTile ):
+						self.Tiles[ player ].append( c )
+				self.Tiles[player] = list(set(self.Tiles[player]))
 		wx.EndBusyCursor()
 
 		newpos = (event.GetX(), event.GetY())			
@@ -222,74 +228,79 @@ class OverView( wx.Frame ):
 		city = self.region.GetCityUnder( newpos )
 		cities = self.GetImpactedCities( city )
 		bValid = True
-		
+
 		for player in self.players:
-			for city2 in cities:
-				if city2 == self.mainTiles[player]:
-					bValid = False
-					break	
-			if city == self.mainTiles[player]:
+			if self.playerName != player:
+				for city2 in cities:
+					if city2 in self.mainTiles[player]:
+						bValid = False
+						break	
+			if city in self.mainTiles[player]:
 				bValid = False
 			if bValid == False:
 				break
 		if bValid:
-			self.mainTiles[ self.playerName ] = city
-			self.Tiles[ self.playerName ] = cities
+			self.mainTiles[ self.playerName ].append( city )
+			for c in cities:
+				self.Tiles[ self.playerName ].append( c )
+			self.Tiles[self.playerName] = list(set(self.Tiles[self.playerName]))
 			self.back.UpdateDrawing()			
 			self.back.wait = True
 			self.back.Refresh( False )
 			wx.BeginBusyCursor()
 			playerFile = open( "player_"+self.playerName+".txt", "wt" )
-			playerFile.write( "%d\n%d"%(city.cityXPos,city.cityYPos) )
+			for city in self.mainTiles[ self.playerName ]:
+				playerFile.write( "%d\n%d\n"%(city.cityXPos,city.cityYPos) )
 			playerFile.close()
 			FileHost.uploadFile( "player_"+self.playerName+".txt" )
 			wx.EndBusyCursor()
 
 	def OnRightDown( self, event ):
 		event.Skip()
-		try:
-			if self.mainTiles[ self.playerName ] == None:
-				return
-		except KeyError:
-			return
-		self.mainTiles[ self.playerName ] = None
-		self.Tiles[ self.playerName ] = []
-		self.back.UpdateDrawing()			
-		self.back.wait = True
-		self.back.Refresh( False )
-		wx.BeginBusyCursor()
-		playerFile = open( "player_"+self.playerName+".txt", "wt" )
-		playerFile.close()
-		FileHost.uploadFile( "player_"+self.playerName+".txt" )
-		wx.EndBusyCursor()
+		newpos = (event.GetX(), event.GetY())			
+		newpos = [ newpos[0]/16,newpos[1]/16 ]
+		city = self.region.GetCityUnder( newpos )
+		if city in self.mainTiles[ self.playerName ]:
+			self.mainTiles[ self.playerName ].remove( city )
+			self.Tiles[ self.playerName ] = []
+			for mainTile in self.mainTiles[ self.playerName ]:
+				for c in self.GetImpactedCities( mainTile ):
+					self.Tiles[ self.playerName ].append( c )
+			self.Tiles[self.playerName] = list(set(self.Tiles[self.playerName]))
+			self.back.UpdateDrawing()			
+			self.back.wait = True
+			self.back.Refresh( False )
+			wx.BeginBusyCursor()
+			playerFile = open( "player_"+self.playerName+".txt", "wt" )
+			for city in self.mainTiles[ self.playerName ]:
+				playerFile.write( "%d\n%d\n"%(city.cityXPos,city.cityYPos) )
+			playerFile.close()
+			FileHost.uploadFile( "player_"+self.playerName+".txt" )
+			wx.EndBusyCursor()
 
 	def OnMouseMove( self, event ):
 		event.Skip()
 		if self.back.wait == True:
 			pass
-		try:
-			if self.mainTiles[ self.playerName ] != None:
-				return
-		except KeyError:
-			return
 		bValid = True
 		newpos = (event.GetX(), event.GetY())			
 		newpos = [ newpos[0]/16,newpos[1]/16 ]
 		city = self.region.GetCityUnder( newpos )
 		cities = self.GetImpactedCities( city )
 		for player in self.players:
-			for city2 in cities:
-				if city2 == self.mainTiles[player]:
-					bValid = False
-					break	
+			if self.playerName != player:
+				for city2 in cities:
+					if city2 == self.mainTiles[player]:
+						bValid = False
+						break	
 			if city == self.mainTiles[player]:
 				bValid = False
 			if bValid == False:
 				break
 		if bValid:
-			self.back.ShowLocked( 0, city, cities, wx.CROSS_HATCH, True )
+			self.back.ShowLocked( 0, [city], cities, wx.CROSS_HATCH, True )
 		else:
-			self.back.HighlightCity( 0, self.region, city, wx.Colour( 255,0,0 ), wx.SOLID, wx.OR, True)
+			self.back.HighlightCity( 0, self.region, [city], wx.Colour( 255,0,0 ), wx.SOLID, wx.OR, True)
 		self.back.wait = True
 		self.back.Refresh( False )
 
@@ -436,7 +447,7 @@ class SplashScreen(BaseSplashScreen):
 			fileList.close()
 			firstLine = files[0].strip("\n").strip().split()
 			version = firstLine[0]
-			if version != NOROVersion.NORO_VERSION:
+			if version > NOROVersion.NORO_VERSION:
 				url = firstLine[1]
 				fd = FileDownloader.FileDownloader( url, "NOROTool.ex_" )
 				fd.Download( 5, self )
@@ -459,7 +470,8 @@ class SplashScreen(BaseSplashScreen):
 					os.unlink( "update.bat" )
 			except:
 				pass
-			downloadFiles = [ f.strip("\n").strip() for f in files[1:] ]		
+			downloadFiles = [ f.strip("\n").strip() for f in files[1:] ]
+			print downloadFiles
 			for downloadMD5 in downloadFiles:
 				infos = downloadMD5.split()
 				download = infos[0]
