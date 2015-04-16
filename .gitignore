@@ -37,8 +37,6 @@ nosetests.xml
 
 NoroConfig.bmp
 PlayerNames.txt
-Background.jpg
-Config.bmp
 NOROTool.ex_
 Players.txt
 _Background.jpg
@@ -63,3 +61,6 @@ player_Player_07.txt
 player_Player_08.txt
 player_Player_09.txt
 player_Player_10.txt
+player_Vortext.txt
+player_art128.txt
+player_eggman121.txt

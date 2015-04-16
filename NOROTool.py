@@ -476,6 +476,7 @@ class SplashScreen(BaseSplashScreen):
 				infos = downloadMD5.split()
 				download = infos[0]
 				md5 = infos[1]
+
 				toDownload = False
 				if os.path.exists( download ):
 					md5HD = computeMd5Checksum( download )
@@ -483,10 +484,20 @@ class SplashScreen(BaseSplashScreen):
 						toDownload = True
 				if not os.path.exists( download ):
 					toDownload = True
+				try:
+					url = infos[2]
+				except IndexError:
+					toDownload = True
 				if toDownload == True:
 					self.SetStatusText( "Downloading %s"%download );
-					wx.Yield()				
-					FileHost.downloadFile( download )
+					wx.Yield()
+					try:
+						url = infos[2]
+						fd = FileDownloader.FileDownloader( url, download )
+						fd.Download( 5, self )
+					except IndexError:
+						FileHost.downloadFile( download )
+
 					
 			playerFile = open( "PlayerNames.txt", "rt" )
 			players = playerFile.readlines()
@@ -501,6 +512,7 @@ class SplashScreen(BaseSplashScreen):
 			wx.Yield()
 			return True
 		except:
+			raise
 			dlg = wx.MessageDialog(None, "Problem while downloading files\nCheck you have an open internet connection",
 							 'Error',
 						 wx.OK | wx.ICON_ERROR
